@@ -1,0 +1,20 @@
+def max(a:int, b:int, c:int) : int => {
+    if (a>b){
+        if (a>c){
+            return a
+        } else {
+            return c
+        }
+    } else {
+        if (b>c){
+            k:int
+            return b+k
+        } else {
+            return c
+        }
+    }
+}
+
+result:int
+
+result = max(2,5,66)
