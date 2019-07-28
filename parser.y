@@ -28,6 +28,7 @@
 %token <i> INT_VAL 
 %token <d> DOUBLE_VAL
 %token COMMA
+%token <fn> FUNC
 
 
 %left <fn> OP_EQ OP_NE
@@ -50,7 +51,7 @@
 
 program: stmts {
     if (shouldPrintDebugInfo) dumpast($1,5);
-    printf("%.2f\n", eval($1));
+    eval($1);
     treefree($1);
 };
 stmts: stmt 
@@ -114,6 +115,7 @@ expr: multi_purpose_exp
 multi_purpose_exp: mathematical_exp
     | variable_exp
     | function_call_exp
+    | FUNC '(' call_args ')' { $$ = newfunc($1, $3); }
     | '(' expr ')' { $$ = $2; }
     | assignment_exp
     | numeric;

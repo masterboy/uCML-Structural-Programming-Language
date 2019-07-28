@@ -40,6 +40,14 @@ FCONST      "0"|{digit}*"."{digit}+
 ">"     { yylval.fn = 1; return OP_GT;}
 ">="    { yylval.fn = 5; return OP_GTE;}
 "," {return COMMA;}
+
+ /* built in functions */
+"sqrt"  { yylval.fn = B_sqrt; return FUNC; }
+"exp"   { yylval.fn = B_exp; return FUNC; }
+"log"   { yylval.fn = B_log; return FUNC; }
+"print" { yylval.fn = B_print; return FUNC; }
+
+
 {ID} {yylval.s = lookup(yytext);return ID;}
 {ICONST} {yylval.i = atoi(yytext); return INT_VAL;}
 {FCONST} {yylval.d = atof(yytext); return DOUBLE_VAL;}
