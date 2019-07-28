@@ -2,7 +2,7 @@ BISON = bison -d
 FLEX = flex
 GCC = gcc
 
-TARGET = target
+TARGET = uc
 GEN_SOURCES = parser.tab.c lex.yy.c
 GEN_HEADERS = parser.tab.h
 

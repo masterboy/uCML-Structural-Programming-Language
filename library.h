@@ -8,6 +8,7 @@ typedef struct symbol symbol_t;
 struct symbol {		/* a variable name */
   char *name;
   int type;
+  int return_type;
   int value_int;
   double value;
   struct ast *func;	/* stmt for the function */
@@ -18,7 +19,11 @@ struct symbol {		/* a variable name */
 #define NHASH 9997
 struct symbol symtab[NHASH];
 
+/* Work with symbol table */
 struct symbol *lookup(char*);
+void setReturnType(struct symbol *s, int TYPE_TOKEN);
+int getType(struct symbol *s);
+// void setReturnTypeAndExpression(struct symbol *s, int TYPE_TOKEN, struct ast *exp);
 
 /* list of symbols, for an argument list */
 struct symlist {
@@ -43,6 +48,7 @@ void symlistfree(struct symlist *sl);
  *  C user function call
  *  K integer constant
  *  Z double constant
+ *  V variable
  */ 
 
 enum bifs {			/* built-in functions */
@@ -111,6 +117,7 @@ struct ast *newasgn(struct symbol *s, struct ast *v);
 struct ast *newnum_int(int d);
 struct ast *newnum_double(double d);
 struct ast *newflow(int nodetype, struct ast *cond, struct ast *tl, struct ast *tr);
+
 
 /* define a function */
 void dodef(struct symbol *name, struct symlist *syms, struct ast *stmts);

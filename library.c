@@ -7,7 +7,10 @@
 #  include <string.h>
 #  include <math.h>
 #  include "library.h"
+#  include "parser.tab.h"
     extern FILE* yyin;
+    extern int yyparse();
+    extern short shouldPrintDebugInfo;
 
 /* symbol table */
 /* hash a symbol */
@@ -20,6 +23,14 @@ symhash(char *sym)
   while(c = *sym++) hash = hash*9 ^ c;
 
   return hash;
+}
+
+char *getTypeName(int type){
+  switch (type) {
+    case 'Z': return "DOUBLE";
+    case 'K': return "INT";
+    default: return "undefined";
+  }
 }
 
 struct symbol *
@@ -45,6 +56,34 @@ lookup(char* sym)
   abort(); /* tried them all, table is full */
 
 }
+
+void setReturnType(struct symbol *s, int TYPE_TOKEN){
+  s->type = 'V';
+  if (shouldPrintDebugInfo) printf("Setting type of %s to %d\n", s->name, TYPE_TOKEN);
+  if (TYPE_TOKEN == 'K'){
+    s->return_type = 'K';
+  } else if (TYPE_TOKEN == 'Z'){
+    s->return_type = 'Z';
+  } else {
+    printf("Invalid RETURN TYPE token : %d\n", TYPE_TOKEN);
+  }
+}
+int getType(struct symbol *s){
+  return s->return_type;
+}
+// void setReturnTypeAndExpression(struct symbol *s, int TYPE_TOKEN, struct ast *exp){
+//   s->type = 'V';
+//   printf("Setting type and value of %s to %d and %.2f\n", s->name, TYPE_TOKEN);
+//   if (TYPE_TOKEN == 'K'){
+//     s->return_type = 'K';
+//   } else if (TYPE_TOKEN == 'Z'){
+//     s->return_type = 'Z';
+//   } else {
+//     printf("Invalid RETURN TYPE token : %d\n", TYPE_TOKEN);
+//   }
+
+//   s->func = exp;
+// }
 
 
 
@@ -74,7 +113,7 @@ newnum_int(int i)
   }
   a->nodetype = 'K';
   a->number = i;
-  printf("NUMBER ADDED | %c => %d | %d\n", 'K', i, a->number);
+  if (shouldPrintDebugInfo) printf("NUMBER ADDED | %c => %d | %d\n", 'K', i, a->number);
   return (struct ast *)a;
 }
 
@@ -90,7 +129,7 @@ newnum_double(double d)
   }
   a->nodetype = 'Z';
   a->number = d;
-  printf("NUMBER ADDED | %c => %f\n", 'Z', d);
+  if (shouldPrintDebugInfo) printf("NUMBER ADDED | %c => %f\n", 'Z', d);
   return (struct ast *)a;
 }
 
@@ -220,8 +259,49 @@ dodef(struct symbol *name, struct symlist *syms, struct ast *func)
   name->func = func;
 }
 
+
 static double callbuiltin(struct fncall *);
 static double calluser(struct ufncall *);
+
+
+int get_return_type(struct ast *a){
+  switch(a->nodetype){
+    case 'K':return 'K';
+    case 'Z':return 'Z';
+
+    /* name reference */
+    case 'N': return ((struct symref *)a)->s->return_type;
+
+    /* assignment */
+    // case '=': {
+    //       struct symbol *s = ((struct symasgn *)a)->s;
+    //       if (s->type != 'V'){
+    //         printf("ERROR: variable %s not defined, but used.\n", s->name);
+    //         exit(1);
+    //       }
+    //       if (shouldPrintDebugInfo) printf("Getting TYPE of %s\n", s->name); 
+    //       return get_return_type(((struct symasgn *)a)->v);
+    //     }
+
+      /* expressions */
+    case '+': 
+    case '-': 
+    case '*': {
+      int left = get_return_type(a->l);
+      int right = get_return_type(a->r);
+      if (shouldPrintDebugInfo) printf("get return type of %.2f and %.2f", eval(a->l), eval(a->r)); 
+      if (left == 'Z' || right == 'Z')
+        return 'Z';
+      else
+        return 'K';
+    }
+    
+    case '/': {
+      return 'Z';
+    }
+    default: return 'Z';
+  }
+}
 
 double
 eval(struct ast *a)
@@ -235,24 +315,67 @@ eval(struct ast *a)
 
   switch(a->nodetype) {
     /* integer constant */
-  case 'K': v = (double)((struct numval_int *)a)->number; break;
+  case 'K': {
+          v = (double)((struct numval_int *)a)->number; 
+          if (shouldPrintDebugInfo) printf("Evaluating integer: %.2f\n", v); 
+          break;
+        }
 
 
     /* double constant */
-  case 'Z': v = ((struct numval_double *)a)->number; break;
+  case 'Z': {v = 
+    ((struct numval_double *)a)->number; 
+    if (shouldPrintDebugInfo) printf("Evaluating double: %.2f\n", v); 
+    break;}
 
     /* name reference */
   case 'N': v = ((struct symref *)a)->s->value; break;
 
     /* assignment */
-  case '=': v = ((struct symasgn *)a)->s->value =
-      eval(((struct symasgn *)a)->v); break;
+  case '=': {
+        struct symbol *s = ((struct symasgn *)a)->s;
+        if (s->type != 'V'){
+          printf("ERROR: variable %s not defined, but used.\n", s->name);
+          exit(1);
+        }
+        int ret_t = get_return_type(((struct symasgn *)a)->v);
+
+        // set return type accordingly
+        if (s->return_type == 'K'){
+          s->value_int =  (int) eval(((struct symasgn *)a)->v);
+          if (shouldPrintDebugInfo) printf("casted to %d\n", s->value_int);
+          v = s->value_int;
+          s->value = s->value_int;
+        } else {
+          s->value =  eval(((struct symasgn *)a)->v);
+          if (shouldPrintDebugInfo) printf("default type %.2f\n", s->value);
+          v = s->value;
+        }
+        if (shouldPrintDebugInfo) printf("Setting %s to %d\n", ((struct symasgn *)a)->s->name, v); 
+        break;
+      }
 
     /* expressions */
-  case '+': v = eval(a->l) + eval(a->r); printf("%.2f + %.2f = %.2f\n", eval(a->l), eval(a->r), v); break;
-  case '-': v = eval(a->l) - eval(a->r); printf("%.2f - %.2f = %.2f\n", eval(a->l), eval(a->r), v); break;
-  case '*': v = eval(a->l) * eval(a->r); printf("%.2f * %.2f = %.2f\n", eval(a->l), eval(a->r), v); break;
-  case '/': v = eval(a->l) / eval(a->r); printf("%.2f / %.2f = %.2f\n", eval(a->l), eval(a->r), v); break;
+  case '+': {
+    v = eval(a->l) + eval(a->r); 
+    if (shouldPrintDebugInfo) printf("%.2f + %.2f = %.2f\n", eval(a->l), eval(a->r), v); 
+    break;
+  }
+  case '-': {
+    v = eval(a->l) - eval(a->r); 
+    if (shouldPrintDebugInfo) printf("%.2f - %.2f = %.2f\n", eval(a->l), eval(a->r), v); 
+    break;
+  }
+  case '*': {
+    v = eval(a->l) * eval(a->r); 
+    if (shouldPrintDebugInfo) printf("%.2f * %.2f = %.2f\n", eval(a->l), eval(a->r), v); 
+    break;
+  }
+  case '/': {
+    v = eval(a->l) / eval(a->r); 
+    if (shouldPrintDebugInfo) printf("%.2f / %.2f = %.2f\n", eval(a->l), eval(a->r), v); 
+    break;
+  }
   case '|': v = fabs(eval(a->l)); break;
   case 'M': v = -eval(a->l); break;
 
@@ -457,6 +580,7 @@ yyerror(char *s, ...)
 int main(int argc, char **argv){
   // extern int yydebug;
   // yydebug = 1;
+
   if(argc>1)
       {
         yyin = fopen(argv[1],"r");
@@ -467,6 +591,20 @@ int main(int argc, char **argv){
       yyin = stdin;
 
   yyparse();
+
+  // DD Symbol Table
+  if (shouldPrintDebugInfo){
+    struct symbol *s;
+    for (int i=0; i<NHASH; i++){
+      s = &symtab[i];
+
+      if (s->value != 0){
+        if (s->return_type == 'Z') printf("Symbol '%s' : %c is %.2f\n", s->name, s->return_type, s->value);
+        if (s->return_type == 'K') printf("Symbol '%s' : %c is %d\n", s->name, s->return_type, s->value_int);
+      }
+    }
+  }
+
   return 0;
 }
 

@@ -3,6 +3,7 @@
     #include "library.h"
     #include "parser.tab.h"
     // int yyerror(const char *s);
+    short shouldPrintDebugInfo = 0;
 %}
 
 alpha       [a-zA-Z]
@@ -18,6 +19,8 @@ FCONST      "0"|{digit}*"."{digit}+
 
 %%
 
+"//".* {/*ignore comments*/}
+"\"mode\ debug\"" {shouldPrintDebugInfo = 1;printf("DEBUG MODE ENABLED\n");}
 "int" {return INT;}
 "double" {return DOUBLE;}
 "return" {return RETURN;}
@@ -43,6 +46,6 @@ FCONST      "0"|{digit}*"."{digit}+
 [\(\)\{\}\:\+\-\*\/\=\<\>\%\!] return yytext[0];
 [ \t] ;
 [\n] ;
-.		{ yyerror("Unknown Character");/* exit(1);*/	}
+.		{ yyerror("Unknown Character"); exit(1);	}
 
 %%
