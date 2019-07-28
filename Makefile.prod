@@ -3,13 +3,13 @@ FLEX = flex
 GCC = gcc
 
 TARGET = target
-GEN_SOURCES = parser.tab.c lex.yy.c library.c
+GEN_SOURCES = parser.tab.c lex.yy.c
 GEN_HEADERS = parser.tab.h
 
 RMFILES = $(TARGET).exe $(GEN_SOURCES) $(GEN_HEADERS)
 
 $(TARGET): parser.tab.c lex.yy.c parser.tab.h
-	$(GCC) -o $(TARGET) $(GEN_SOURCES)
+	$(GCC) -o $(TARGET) $(GEN_SOURCES) library.c
 
 parser.tab.c: parser.y
 	$(BISON) $<
