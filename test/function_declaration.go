@@ -1,0 +1,7 @@
+def square(x: int):int =>  { return x * x }
+def sumOfSquares(x: int, y: int):int => {
+   return square(x) + square(y)
+}
+
+
+echo(sumOfSquares(4,5)) // prints 41

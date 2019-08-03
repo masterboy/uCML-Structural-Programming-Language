@@ -3,4 +3,3 @@ parser.output
 parser.tab.c
 parser.tab.h
 target.exe
-test*

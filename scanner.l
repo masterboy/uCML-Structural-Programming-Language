@@ -9,9 +9,10 @@
 alpha       [a-zA-Z]
 digit       [0-9]
 alnum       {alpha}|{digit}
+alnumus		{alpha}|{digit}|_
 print       [ -~]
 
-ID          {alpha}+{alnum}*
+ID          {alpha}+{alnumus}*
 ICONST      "0"|[0-9]{digit}*
 FCONST      "0"|{digit}*"."{digit}+
 
@@ -46,14 +47,21 @@ FCONST      "0"|{digit}*"."{digit}+
 "exp"   { yylval.fn = B_exp; return FUNC; }
 "log"   { yylval.fn = B_log; return FUNC; }
 "print" { yylval.fn = B_print; return FUNC; }
+"echo" { yylval.fn = B_print; return FUNC; }
+"printi" { yylval.fn = B_print; return FUNC; }
+"newline" { yylval.fn = B_newline; return FUNC; }
 
 
 {ID} {yylval.s = lookup(yytext);return ID;}
 {ICONST} {yylval.i = atoi(yytext); return INT_VAL;}
 {FCONST} {yylval.d = atof(yytext); return DOUBLE_VAL;}
 [\(\)\{\}\:\+\-\*\/\=\<\>\%\!] return yytext[0];
-[ \t] ;
-[\n] ;
-.		{ yyerror("Unknown Character"); exit(1);	}
+[ \t] {};
+[\r\n] {};
+.		{ 
+			yyerror("Unknown Character"); 
+			// printf("%c - %d\n", yytext[0]);
+			exit(1);	
+		}
 
 %%

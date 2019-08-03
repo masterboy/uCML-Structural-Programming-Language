@@ -1,5 +1,5 @@
 /*
- * helper functions for UCML
+ * Contains the Semantic Analysis and Evaluation part of UCML Interpreter.
  */
 #  include <stdio.h>
 #  include <stdlib.h>
@@ -223,6 +223,23 @@ newflow(int nodetype, struct ast *cond, struct ast *tl, struct ast *el)
   return (struct ast *)a;
 }
 
+struct ast *newforflow(struct symbol *incrementer, struct ast *lb, struct ast *ub, struct ast *stmts, struct ast *increment){
+  struct forflow *a = malloc(sizeof(struct forflow));
+  
+  if(!a) {
+    yyerror("out of space");
+    exit(0);
+  }
+  a->nodetype = 'R';
+  a->incrementer = incrementer;
+  a->lb = lb;
+  a->ub = ub;
+  a->stmts = stmts;
+  a->increment = increment;
+
+  return (struct ast *)a;
+}
+
 struct symlist *
 newsymlist(struct symbol *sym, struct symlist *next)
 {
@@ -295,6 +312,17 @@ int get_return_type(struct ast *a){
       else
         return 'K';
     }
+
+    case 'C':{
+      return ((struct ufncall *)a)->s->return_type;
+    }
+
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6': return 'K';
     
     case '/': {
       return 'Z';
@@ -309,7 +337,7 @@ eval(struct ast *a)
   double v;
 
   if(!a) {
-    yyerror("internal error, null eval");
+    if (shouldPrintDebugInfo) yyerror("internal error, null eval");
     return 0.0;
   }
 
@@ -329,7 +357,17 @@ eval(struct ast *a)
     break;}
 
     /* name reference */
-  case 'N': v = ((struct symref *)a)->s->value; break;
+  case 'N': {
+    //   v = ((struct symref *)a)->s->value; 
+    //   break;
+    // } else {
+    //   int cast = (int) ((struct symref *)a)->s->value_int; 
+    //   v = cast;
+    //   break;
+    // }
+    v = ((struct symref *)a)->s->value;
+      break;
+  }
 
     /* assignment */
   case '=': {
@@ -339,19 +377,23 @@ eval(struct ast *a)
           exit(1);
         }
         int ret_t = get_return_type(((struct symasgn *)a)->v);
+        if (shouldPrintDebugInfo) printf("Return type of %s is %c\n", s->name, ret_t);
+
+        v = eval(((struct symasgn *)a)->v);
+        if (shouldPrintDebugInfo) printf("Expression Evaluated to %.2f\n", v);
 
         // set return type accordingly
         if (s->return_type == 'K'){
-          s->value_int =  (int) eval(((struct symasgn *)a)->v);
+          s->value_int =  (int) v;
           if (shouldPrintDebugInfo) printf("casted to %d\n", s->value_int);
           v = s->value_int;
           s->value = s->value_int;
         } else {
-          s->value =  eval(((struct symasgn *)a)->v);
+          s->value =  v;
           if (shouldPrintDebugInfo) printf("default type %.2f\n", s->value);
           v = s->value;
         }
-        if (shouldPrintDebugInfo) printf("Setting %s to %d\n", ((struct symasgn *)a)->s->name, v); 
+        if (shouldPrintDebugInfo) printf("Setting %s to %d\n", ((struct symasgn *)a)->s->name, (int)v); 
         break;
       }
 
@@ -374,6 +416,11 @@ eval(struct ast *a)
   case '/': {
     v = eval(a->l) / eval(a->r); 
     if (shouldPrintDebugInfo) printf("%.2f / %.2f = %.2f\n", eval(a->l), eval(a->r), v); 
+    break;
+  }
+  case '%': {
+    v = (int) eval(a->l) % (int) eval(a->r); 
+    if (shouldPrintDebugInfo) printf("%.2f %.2f = %.2f\n", eval(a->l), eval(a->r), v); 
     break;
   }
   case '|': v = fabs(eval(a->l)); break;
@@ -411,6 +458,27 @@ eval(struct ast *a)
 	v = eval(((struct flow *)a)->tl);
     }
     break;			/* last value is value */
+
+  case 'R': {
+    v = 0.0;
+    int start = eval(((struct forflow *)a)->lb);
+    int end = eval(((struct forflow *)a)->ub);
+    int increment = eval(((struct forflow *)a)->increment);
+    struct symbol *inc = ((struct forflow *)a)->incrementer;
+    inc->value = start;
+    if (shouldPrintDebugInfo) printf("Initialized %s to %d\n", inc->name, (int) start);
+
+    if (shouldPrintDebugInfo) printf("STARTING LOOP %d to %d by %d\n", start, end, increment);
+
+    if( ((struct forflow *)a)->stmts ) {
+      for(int i=start; i<=end; i+=increment){
+        if (shouldPrintDebugInfo) printf("Current value of %s is %d\n", inc->name, (int) inc->value);
+        v = eval(((struct forflow *)a)->stmts);
+        inc->value += increment;
+      }
+    }
+    break;
+  }
 	              
   case 'L': eval(a->l); v = eval(a->r); break;
 
@@ -418,7 +486,7 @@ eval(struct ast *a)
 
   case 'C': v = calluser((struct ufncall *)a); break;
 
-  default: printf("internal error: bad node %c\n", a->nodetype);
+  default: if (shouldPrintDebugInfo) printf("internal error: bad node %c\n", a->nodetype);
   }
   return v;
 }
@@ -427,7 +495,9 @@ static double
 callbuiltin(struct fncall *f)
 {
   enum bifs functype = f->functype;
+  int ret_t = get_return_type(f->l);
   double v = eval(f->l);
+  // printf("i = %d\n", (int)v);
 
  switch(functype) {
  case B_sqrt:
@@ -437,8 +507,15 @@ callbuiltin(struct fncall *f)
  case B_log:
    return log(v);
  case B_print:
-   printf("= %4.4g\n", v);
+   if (ret_t == 'Z'){
+    printf("%.2f\n", v); 
+   } else {
+    printf("%d\n", (int) v);
+   }
    return v;
+ case B_newline:
+    printf("\n");
+    break;
  default:
    yyerror("Unknown built-in function %d", functype);
    return 0.0;
@@ -504,6 +581,7 @@ calluser(struct ufncall *f)
 
   /* evaluate the function */
   v = eval(fn->func);
+  if (shouldPrintDebugInfo) printf("Function %s evaludated to: %.2f\n", fn->name, v);
 
   /* put the dummies back */
   sl = fn->syms;
@@ -522,6 +600,9 @@ calluser(struct ufncall *f)
 void
 treefree(struct ast *a)
 {
+  if (!a){
+    return;
+  }
   switch(a->nodetype) {
 
     /* two subtrees */
@@ -529,6 +610,7 @@ treefree(struct ast *a)
   case '-':
   case '*':
   case '/':
+  case '%':
   case '1':  case '2':  case '3':  case '4':  case '5':  case '6':
   case 'L':
     treefree(a->r);
@@ -552,7 +634,7 @@ treefree(struct ast *a)
     if( ((struct flow *)a)->el) free( ((struct flow *)a)->el);
     break;
 
-  default: printf("internal error: free bad node %c\n", a->nodetype);
+  default: if (shouldPrintDebugInfo) printf("internal error: free bad node %c\n", a->nodetype);
   }	  
   
   free(a); /* always free the node itself */
@@ -560,7 +642,7 @@ treefree(struct ast *a)
 }
 
 void
-yyerror(char *s, ...)
+yyerror(const char *s, ...)
 {
   va_list ap;
   va_start(ap, s);
@@ -598,7 +680,7 @@ int main(int argc, char **argv){
     for (int i=0; i<NHASH; i++){
       s = &symtab[i];
 
-      if (s->value != 0){
+      if (s->value != 0 || s->value_int != 0 || s->return_type != 0){
         if (s->return_type == 'Z') printf("Symbol '%s' : %c is %.2f\n", s->name, s->return_type, s->value);
         if (s->return_type == 'K') printf("Symbol '%s' : %c is %d\n", s->name, s->return_type, s->value_int);
       }
@@ -637,7 +719,7 @@ dumpast(struct ast *a, int level)
     dumpast( ((struct symasgn *)a)->v, level); return;
 
     /* expressions */
-  case '+': case '-': case '*': case '/': case 'L':
+  case '+': case '-': case '*': case '/': case '%': case 'L':
   case '1': case '2': case '3':
   case '4': case '5': case '6': 
     printf("binop %c\n", a->nodetype);

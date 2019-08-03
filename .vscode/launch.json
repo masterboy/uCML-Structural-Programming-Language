@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - TestRunner",
+            "request": "launch",
+            "mainClass": "TestRunner",
+            "projectName": "ucml_parser_948d2cb0",
+            "console": "integratedTerminal"
+        }
+    ]
+}

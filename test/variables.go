@@ -1,0 +1,15 @@
+// "mode debug"
+
+x:int
+x = 5+6-5/5+9
+
+echo(x) // prints 19
+
+r:int = 5
+pi:double = 3.1416
+
+// circumference
+print(2*pi*r) // prints 31.42
+
+// area
+print(pi*r*r) // prints 78.54
