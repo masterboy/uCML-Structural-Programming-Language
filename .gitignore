@@ -1,5 +1,5 @@
-lex.yy.c
-parser.output
-parser.tab.c
-parser.tab.h
-target.exe
+src/lex.yy.c
+src/parser.output
+src/parser.tab.c
+src/parser.tab.h
+.vscode

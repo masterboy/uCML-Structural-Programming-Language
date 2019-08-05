@@ -6,7 +6,7 @@ TARGET = uc
 GEN_SOURCES = parser.tab.c lex.yy.c
 GEN_HEADERS = parser.tab.h
 
-RMFILES = $(TARGET).exe $(GEN_SOURCES) $(GEN_HEADERS) parser.output
+RMFILES = $(TARGET) $(GEN_SOURCES) $(GEN_HEADERS) parser.output
 
 $(TARGET): parser.tab.c lex.yy.c parser.tab.h
 	$(GCC) -g -o $(TARGET) $(GEN_SOURCES) library.c -lm
